@@ -14,6 +14,7 @@
 
 #include <list>
 #include <mutex>  // NOLINT
+#include <unordered_map>
 #include <vector>
 
 #include "buffer/replacer.h"
@@ -47,6 +48,22 @@ class LRUReplacer : public Replacer {
 
  private:
   // TODO(student): implement me!
+  class DqueueNode {
+   public:
+    DqueueNode *pre_ = {nullptr};
+    DqueueNode *next_ = {nullptr};
+    frame_id_t cur_frame_;
+    explicit DqueueNode(frame_id_t frame_id) { cur_frame_ = frame_id; }
+  };
+  std::unordered_map<frame_id_t, DqueueNode *> node_map_;
+  DqueueNode *dummy_;
+  DqueueNode *tail_;
+  void AddToHead(DqueueNode *node);
+  void RemoveNode(DqueueNode *node);
+  int size_;
+  int capacity_;
+  auto GetTail() -> frame_id_t;
+  std::mutex latch_;
 };
 
 }  // namespace bustub

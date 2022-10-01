@@ -15,14 +15,17 @@
 #include <vector>
 
 #include "buffer/lru_replacer.h"
+#include "common/logger.h"
 #include "gtest/gtest.h"
 
 namespace bustub {
 
-TEST(LRUReplacerTest, DISABLED_SampleTest) {
+TEST(LRUReplacerTest, SampleTest) {
   LRUReplacer lru_replacer(7);
 
   // Scenario: unpin six elements, i.e. add them to the replacer.
+    LOG_INFO("here");
+
   lru_replacer.Unpin(1);
   lru_replacer.Unpin(2);
   lru_replacer.Unpin(3);
@@ -30,6 +33,7 @@ TEST(LRUReplacerTest, DISABLED_SampleTest) {
   lru_replacer.Unpin(5);
   lru_replacer.Unpin(6);
   lru_replacer.Unpin(1);
+  LOG_INFO("here");
   EXPECT_EQ(6, lru_replacer.Size());
 
   // Scenario: get three victims from the lru.
