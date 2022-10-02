@@ -12,9 +12,12 @@
 
 #pragma once
 
+#include <sys/types.h>
+#include <cstddef>
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
+#include <queue>
 #include <unordered_map>
 #include <vector>
 
@@ -135,11 +138,60 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  [[maybe_unused]] size_t current_timestamp_{0};
+  [[maybe_unused]] size_t current_timestamp_{1};
   [[maybe_unused]] size_t curr_size_{0};
   [[maybe_unused]] size_t replacer_size_;
   [[maybe_unused]] size_t k_;
   std::mutex latch_;
+  class HeapNode{
+    public:
+      size_t inf_ = 0x3f3f3f3f;
+      size_t k_;
+      size_t cur_idx_ = 0;
+      bool evict_ = true;
+      std::vector<int> timestamps_ = {};
+      HeapNode()= default;
+      explicit HeapNode(size_t k):k_(k){
+      }
+      auto GetDistance() const ->size_t {
+        return timestamps_.size()==k_?timestamps_[(cur_idx_-1)%k_]-timestamps_[(cur_idx_)%k_]:inf_;
+      }
+      void AddTimeStamp(size_t time) {
+        if(timestamps_.size()!=k_) { 
+          timestamps_.push_back(time);
+          cur_idx_++;
+        }
+        else {
+          timestamps_[cur_idx_++] = time;
+        }
+        if(cur_idx_==k_) {
+          cur_idx_ = 0;
+        }
+      }
+      
+      // bigger is larger
+      // whatever, priority_queue in c++ could not delete the random element, we straightly do the scan search
+      auto operator<(const HeapNode& node) const -> bool{
+        bool flag = false;
+        if(evict_ && !node.evict_) {
+          flag = true;
+        } else if (!evict_ && node.evict_) {
+          flag = false;
+        } else {
+          flag = GetDistance()<node.GetDistance();
+          if(GetDistance()==inf_ && node.GetDistance()==inf_) {
+            if(timestamps_[(cur_idx_-1)%k_]>node.timestamps_[(node.cur_idx_-1)%k_]) {
+              flag = true;
+            }
+          }
+        }
+        return flag;
+      }
+  };
+  std::priority_queue<HeapNode> lru_heap_;
+  std::unordered_map<frame_id_t, HeapNode> node_map_;
+  void AddToMap(frame_id_t frame_id);
+  auto DeleteMaxInMap() -> frame_id_t;
 };
 
 }  // namespace bustub
