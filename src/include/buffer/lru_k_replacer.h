@@ -143,50 +143,48 @@ class LRUKReplacer {
   [[maybe_unused]] size_t replacer_size_;
   [[maybe_unused]] size_t k_;
   std::mutex latch_;
-  class HeapNode{
-    public:
-      size_t inf_ = 0x3f3f3f3f;
-      size_t k_;
-      size_t cur_idx_ = 0;
-      bool evict_ = true;
-      std::vector<int> timestamps_ = {};
-      HeapNode()= default;
-      explicit HeapNode(size_t k):k_(k){
+  class HeapNode {
+   public:
+    size_t inf_ = 0x3f3f3f3f;
+    size_t k_;
+    size_t cur_idx_ = 0;
+    bool evict_ = true;
+    std::vector<int> timestamps_ = {};
+    HeapNode() = default;
+    explicit HeapNode(size_t k) : k_(k) {}
+    auto GetDistance() const -> size_t {
+      return timestamps_.size() == k_ ? timestamps_[(cur_idx_ - 1) % k_] - timestamps_[(cur_idx_) % k_] : inf_;
+    }
+    void AddTimeStamp(size_t time) {
+      if (timestamps_.size() != k_) {
+        timestamps_.push_back(time);
+        cur_idx_++;
+      } else {
+        timestamps_[cur_idx_++] = time;
       }
-      auto GetDistance() const ->size_t {
-        return timestamps_.size()==k_?timestamps_[(cur_idx_-1)%k_]-timestamps_[(cur_idx_)%k_]:inf_;
+      if (cur_idx_ == k_) {
+        cur_idx_ = 0;
       }
-      void AddTimeStamp(size_t time) {
-        if(timestamps_.size()!=k_) { 
-          timestamps_.push_back(time);
-          cur_idx_++;
-        }
-        else {
-          timestamps_[cur_idx_++] = time;
-        }
-        if(cur_idx_==k_) {
-          cur_idx_ = 0;
-        }
-      }
-      
-      // bigger is larger
-      // whatever, priority_queue in c++ could not delete the random element, we straightly do the scan search
-      auto operator<(const HeapNode& node) const -> bool{
-        bool flag = false;
-        if(evict_ && !node.evict_) {
-          flag = true;
-        } else if (!evict_ && node.evict_) {
-          flag = false;
-        } else {
-          flag = GetDistance()<node.GetDistance();
-          if(GetDistance()==inf_ && node.GetDistance()==inf_) {
-            if(timestamps_[(cur_idx_-1)%k_]>node.timestamps_[(node.cur_idx_-1)%k_]) {
-              flag = true;
-            }
+    }
+
+    // bigger is larger
+    // whatever, priority_queue in c++ could not delete the random element, we straightly do the scan search
+    auto operator<(const HeapNode &node) const -> bool {
+      bool flag = false;
+      if (evict_ && !node.evict_) {
+        flag = true;
+      } else if (!evict_ && node.evict_) {
+        flag = false;
+      } else {
+        flag = GetDistance() < node.GetDistance();
+        if (GetDistance() == inf_ && node.GetDistance() == inf_) {
+          if (timestamps_[(cur_idx_ - 1) % k_] > node.timestamps_[(node.cur_idx_ - 1) % k_]) {
+            flag = true;
           }
         }
-        return flag;
       }
+      return flag;
+    }
   };
   std::priority_queue<HeapNode> lru_heap_;
   std::unordered_map<frame_id_t, HeapNode> node_map_;
