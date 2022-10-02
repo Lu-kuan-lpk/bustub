@@ -112,6 +112,8 @@ class ExtendibleHashTable : public HashTable<K, V> {
    public:
     explicit Bucket(size_t size, int depth = 0);
 
+    Bucket() = default;
+
     /** @brief Check if a bucket is full. */
     inline auto IsFull() const -> bool { return list_.size() == size_; }
 
@@ -180,7 +182,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
    * @brief Redistribute the kv pairs in a full bucket.
    * @param bucket The bucket to be redistributed.
    */
-  auto RedistributeBucket(std::shared_ptr<Bucket> bucket) -> void;
+  auto RedistributeBucket(std::shared_ptr<Bucket> bucket, size_t index) -> void;
 
   /*****************************************************************
    * Must acquire latch_ first before calling the below functions. *
@@ -192,6 +194,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
    * @return The entry index in the directory.
    */
   auto IndexOf(const K &key) -> size_t;
+  auto IndexOfDepth(const K &key, const int& depth) -> size_t;
 
   auto GetGlobalDepthInternal() const -> int;
   auto GetLocalDepthInternal(int dir_index) const -> int;
