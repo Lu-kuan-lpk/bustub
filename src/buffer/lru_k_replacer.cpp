@@ -21,6 +21,7 @@ namespace bustub {
 
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {
   // lru_heap_ = std::priority_queue<HeapNode>();
+  LOG_INFO("replace k size: %d",(int)k_);
   node_map_.clear();
 }
 
@@ -37,12 +38,14 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
   latch_.lock();
+  LOG_INFO("Record access of %d",frame_id);
   AddToMap(frame_id);
   latch_.unlock();
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   latch_.lock();
+  LOG_INFO("set evictable %d %d",frame_id,set_evictable);
   // do not delete the element, just let it could not be seen
   if (node_map_.find(frame_id) != node_map_.end()) {
     if (node_map_[frame_id].evict_ && !set_evictable) {
@@ -59,10 +62,15 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   latch_.lock();
-  if (node_map_[frame_id].evict_) {
-    node_map_.erase(frame_id);
-  } else {
-    throw bustub::Exception("remove a unevicted frame");
+  LOG_INFO("remove frame: %d",frame_id);
+  // if the frame exist && could be evict then remove
+  if (node_map_.find(frame_id)!=node_map_.end()) {
+    if (node_map_[frame_id].evict_) {
+      node_map_.erase(frame_id);
+      curr_size_--;
+    } else {
+      throw bustub::Exception("remove a unevicted frame");
+    }
   }
   latch_.unlock();
 }
@@ -79,12 +87,15 @@ void LRUKReplacer::AddToMap(frame_id_t frame_id) {
     // already full
     if (curr_size_ == replacer_size_) {
       // do nothing
-    } else {
-      HeapNode cur_node = HeapNode(static_cast<size_t>(k_));
-      node_map_[frame_id] = cur_node;
-      // lru_heap_.push(cur_node);
-      curr_size_++;
+      LOG_INFO("same condi");
+      return;
     }
+
+    HeapNode cur_node = HeapNode(static_cast<size_t>(k_));
+    node_map_[frame_id] = cur_node;
+    // lru_heap_.push(cur_node);
+    curr_size_++;
+    
   }
   node_map_[frame_id].AddTimeStamp(current_timestamp_);
   current_timestamp_++;
@@ -92,14 +103,12 @@ void LRUKReplacer::AddToMap(frame_id_t frame_id) {
 
 auto LRUKReplacer::DeleteMaxInMap() -> frame_id_t {
   frame_id_t frame = 0;
-  HeapNode maxnode = HeapNode();
+  HeapNode minnode = HeapNode();
   for (const auto &kv : node_map_) {
-    LOG_INFO("%d,%d", kv.first, kv.second.evict_);
     if (kv.second.evict_) {
-      LOG_INFO("%d", static_cast<int32_t>(kv.second.GetDistance()));
-      if (maxnode.timestamps_.empty() || maxnode < kv.second) {
+      if (minnode.timestamps_.empty() || minnode > kv.second) {
         frame = kv.first;
-        maxnode = kv.second;
+        minnode = kv.second;
       }
     }
   }
@@ -108,7 +117,6 @@ auto LRUKReplacer::DeleteMaxInMap() -> frame_id_t {
     curr_size_--;
     LOG_INFO("delete the frame_id: %d, time_stamp: %d", frame, static_cast<frame_id_t>(current_timestamp_));
   }
-  LOG_INFO("here");
 
   return frame;
 }

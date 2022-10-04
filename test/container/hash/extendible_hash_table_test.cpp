@@ -68,4 +68,25 @@ TEST(ExtendibleHashTableTest, ConcurrentInsertTest) {
   }
 }
 
+TEST(ExtendibleHashTableTest, Extra) {
+  auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(2);
+
+  table->Insert(4, "a");
+  table->Insert(12, "b");
+  table->Insert(16, "c");
+  table->Insert(0, "d");
+  table->Insert(5, "e");
+  table->Insert(10, "f");
+  table->Insert(19, "g");
+  table->Insert(15, "h");
+  table->Insert(18, "i");
+
+  table->Insert(20, "a");
+  table->Insert(7, "b");
+  table->Insert(21, "c");
+  table->Insert(11, "d");
+  table->Insert(19, "e");
+  table->Insert(14, "f");
+}
+
 }  // namespace bustub

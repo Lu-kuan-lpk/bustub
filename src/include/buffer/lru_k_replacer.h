@@ -153,7 +153,7 @@ class LRUKReplacer {
     HeapNode() = default;
     explicit HeapNode(size_t k) : k_(k) {}
     auto GetDistance() const -> size_t {
-      return timestamps_.size() == k_ ? timestamps_[(cur_idx_ - 1) % k_] - timestamps_[(cur_idx_) % k_] : inf_;
+      return timestamps_.size() == k_ ? timestamps_[(cur_idx_) % k_] : inf_;
     }
     void AddTimeStamp(size_t time) {
       if (timestamps_.size() != k_) {
@@ -169,18 +169,20 @@ class LRUKReplacer {
 
     // bigger is larger
     // whatever, priority_queue in c++ could not delete the random element, we straightly do the scan search
-    auto operator<(const HeapNode &node) const -> bool {
+    auto operator>(const HeapNode &node) const -> bool {
       bool flag = false;
       if (evict_ && !node.evict_) {
-        flag = true;
-      } else if (!evict_ && node.evict_) {
         flag = false;
+      } else if (!evict_ && node.evict_) {
+        flag = true;
       } else {
-        flag = GetDistance() < node.GetDistance();
-        if (GetDistance() == inf_ && node.GetDistance() == inf_) {
-          if (timestamps_[(cur_idx_ - 1) % k_] > node.timestamps_[(node.cur_idx_ - 1) % k_]) {
-            flag = true;
-          }
+        flag = GetDistance() > node.GetDistance();
+        if (GetDistance() == inf_ && node.GetDistance() != inf_) {
+          flag = false;
+        } else if (GetDistance() != inf_ && node.GetDistance() == inf_) {
+          flag = true;
+        } else if(GetDistance() == inf_ && node.GetDistance() == inf_){
+          return timestamps_[0]>node.timestamps_[0];
         }
       }
       return flag;

@@ -79,6 +79,8 @@ auto ExtendibleHashTable<K, V>::GetNumBucketsInternal() const -> int {
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
   // UNREACHABLE("not implemented");
+  std::lock_guard<std::mutex> guard(latch_);
+  LOG_INFO("find %d in bucket %d",(int)IndexOfDepth(key,5),(int)IndexOf(key));
   return dir_[IndexOf(key)]->Find(key, value);
 }
 
@@ -86,6 +88,7 @@ template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
   // UNREACHABLE("not implemented");
   std::lock_guard<std::mutex> guard(latch_);
+  LOG_INFO("remove %d in bucket %d",(int)IndexOfDepth(key,5),(int)IndexOf(key));
   return dir_[IndexOf(key)]->Remove(key);
 }
 
@@ -93,7 +96,9 @@ template <typename K, typename V>
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
   // UNREACHABLE("not implemented");
   std::lock_guard<std::mutex> guard(latch_);
+  LOG_INFO("start insert %d in bucket %d",(int)IndexOfDepth(key,5),(int)IndexOf(key));
   while (true) {
+    LOG_INFO("insert %d",(int)IndexOf(key));
     bool success = dir_[IndexOf(key)]->Insert(key, value);
     if (!success) {
       RedistributeBucket(dir_[IndexOf(key)], IndexOf(key));
@@ -145,9 +150,9 @@ auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> 
     if ((*it).first == key) {
       (*it).second = value;
       flag = true;
-    } else {
-      it++;
+      break;
     }
+    it++;
   }
   if (!flag) {
     if (list_.size() != size_) {
@@ -162,6 +167,7 @@ auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucket, size_t index) -> void {
   LOG_INFO("bucket with the index of %d split", (int)index);
+  num_buckets_++;
   // distribute the bucket into two bucket
   if (bucket->GetDepth() == global_depth_) {
     // add new bucket
@@ -173,18 +179,34 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucke
   }
 
   // add the depth
+  int mask = 1<<bucket->GetDepth();
+
   bucket->IncrementDepth();
 
   auto list = bucket->GetItems();
-  int split_idx = static_cast<int>(index) >= (1 << (global_depth_ - 1)) ? index - (1 << (global_depth_ - 1))
-                                                                        : index + (1 << (global_depth_ - 1));
-  dir_[split_idx] = std::make_shared<Bucket>(bucket_size_, bucket->GetDepth());
+  // int split_idx = static_cast<int>(index) >= (1 << (global_depth_ - 1)) ? index - (1 << (global_depth_ - 1))
+  //                                                                       : index + (1 << (global_depth_ - 1));
+  auto newbucket = std::make_shared<Bucket>(bucket_size_,bucket->GetDepth());
+  // dir_[split_idx] = std::make_shared<Bucket>(bucket_size_, bucket->GetDepth());
   for (auto it = list.begin(); it != list.end(); it++) {
-    if (IndexOfDepth((*it).first, bucket->GetDepth()) != index) {
+
+    if (IndexOf((*it).first) & mask ) {
       dir_[index]->Remove((*it).first);
-      dir_[IndexOfDepth((*it).first, bucket->GetDepth())]->Insert((*it).first, (*it).second);
+      newbucket->Insert((*it).first, (*it).second);
     }
   }
+
+  LOG_INFO("%d, %d, %d",(int)index,bucket->GetDepth(),mask);
+
+  for(size_t i=0;i<dir_.size();i++) {
+    if(bucket==dir_[i]){
+      if( (i & mask)!=0) {
+        dir_[i] = newbucket;
+        LOG_INFO("%d bucket is change to newbucket",(int)i);
+      }
+    }
+  }
+
 }
 
 template class ExtendibleHashTable<page_id_t, Page *>;
